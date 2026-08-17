@@ -27,7 +27,7 @@
     .spread{justify-content:space-between}
     .metric{font-size:13px;color:var(--muted)}
     .big{font-size:24px;font-weight:800;margin-top:2px}
-    .pill{display:inline-flex;align-items:center;border-radius:999px;padding:7px 10px;background:var(--soft);font-size:12px;font-weight:700;color:#5d438e}
+    .pill{display:inline-flex;align-items:center;justify-content:center;text-align:center;border-radius:999px;padding:7px 10px;background:var(--soft);font-size:12px;font-weight:700;color:#5d438e}
     .pill.warn{background:var(--warnbg);color:var(--warn)}
     .chart-wrap{overflow-x:auto;padding:8px 0 2px}
     .chart{height:190px;min-width:540px;display:flex;align-items:flex-end;gap:4px;border-bottom:1px solid var(--line);position:relative}
@@ -35,6 +35,8 @@
     .bar{width:13px;min-height:2px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,var(--accent),var(--accent2));transition:.2s}
     .tick{font-size:10px;color:var(--muted);height:22px;padding-top:4px;white-space:nowrap}
     .nowline{position:absolute;bottom:22px;top:0;width:2px;background:#3d2d56;opacity:.45;pointer-events:none}
+    .endline{position:absolute;bottom:22px;top:0;width:2px;background:#8f7fa7;opacity:.6;pointer-events:none}
+    .endlabel{position:absolute;top:4px;transform:translateX(-50%);font-size:9px;color:#786b88;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 6px;white-space:nowrap}
     .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
     .dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--accent);margin-right:5px}
     button{font:inherit}
@@ -87,7 +89,7 @@
       <span class="pill" id="statusPill">No dose logged</span>
     </div><div class="hero-progress"><div id="heroProgress" style="width:0%"></div></div>
     <div class="chart-wrap"><div class="chart" id="chart"></div></div>
-    <div class="legend"><span><i class="dot"></i>Combined relative activity</span><span>Now marker = dark vertical line</span></div><div id="doseChips" class="row" style="overflow-x:auto;margin-top:12px;padding-bottom:2px"></div>
+    <div class="legend"><span><i class="dot"></i>Estimated medication activity</span><span>Bars stop at the ~7.4 hr mean clinical-effect duration</span></div><div id="doseChips" class="row" style="overflow-x:auto;margin-top:12px;padding-bottom:2px"></div>
     <div id="uncertainty"></div>
   </section>
 
@@ -148,8 +150,9 @@
       <div class="fine" style="margin-top:10px">
         <p><b>Fasted PK curve:</b> one-compartment oral absorption model (Bateman function), using a 3.1-hour mean time to maximum concentration and 3.0-hour mean plasma half-life reported for oral glycopyrrolate solution. The absorption-rate constant is fitted so the curve peaks at 3.1 hours.</p>
         <p><b>High-fat condition:</b> the model uses the reported fed timing (about 2.6-hour Tmax and 3.2-hour half-life) and scales peak amplitude to about 26% of the fasting peak, reflecting the observed reduction in Cmax. Reported overall exposure (AUC) was about 22% of fasting. This study used a specific high-fat meal, so it should not be generalized to every meal.</p>
-        <p><b>Sweat-control window:</b> the timeline separately shows the published mean clinical onset (~2.3 hours) and mean duration of effect (~7.4 hours) from a hyperhidrosis study. Plasma concentration and sweat suppression are not the same thing, so the app labels the PK peak as “medication peak,” not “peak sweat control.”</p>
+        <p><b>Sweat-control window:</b> the timeline separately shows the published mean clinical onset (~2.3 hours) and mean duration of effect (~7.4 hours) from a hyperhidrosis study. GlycoView stops plotting activity after that mean duration so the graph is not mistaken for evidence of continued sweat control. Plasma concentration and sweat suppression are not the same thing.</p>
         <p><b>Other / unknown food:</b> there is not enough evidence to assign a defensible numeric multiplier for ordinary meals. GlycoView therefore displays the fasting reference timing but flags the result as uncertain instead of inventing a calorie-to-absorption formula.</p>
+        <p><b>Meal timing:</b> oral glycopyrrolate is generally taken on an empty stomach. Product labeling for glycopyrrolate oral solution instructs taking it at least <b>1 hour before a meal</b> or at least <b>2 hours after a meal</b>, because high-fat food can substantially reduce oral bioavailability. Follow the directions for your own prescription and formulation.</p>
       </div>
     </details>
     <details>
@@ -203,6 +206,7 @@ function normCurve(hours, condition){
 }
 function doseContribution(d, when){
   const h=(when-new Date(d.time))/(1000*60*60);
+  if(h < 0 || h > clinicalDuration) return 0;
   const cond=d.food==='highfat'?'highfat':'fasted';
   return Number(d.mg)*normCurve(h,cond);
 }
@@ -247,8 +251,8 @@ function renderChart(){
   points.forEach((p,i)=>{
     const col=document.createElement('div'); col.className='barcol';
     const bar=document.createElement('div'); bar.className='bar';
-    bar.style.height=`${Math.max(2,(p.total/max)*150)}px`;
-    bar.title=`${fmtTime(p.t)} · ${Math.round((p.total/max)*100)}% relative activity`;
+    bar.style.height=p.total>0?`${Math.max(2,(p.total/max)*150)}px`:'0px';
+    bar.title=`${fmtTime(p.t)} · ${Math.round((p.total/max)*100)}% estimated medication activity`;
     const tick=document.createElement('div'); tick.className='tick';
     tick.textContent=(i%4===0)?fmtTime(p.t):'';
     col.append(bar,tick); chart.appendChild(col);
@@ -257,6 +261,18 @@ function renderChart(){
   const frac=Math.max(0,Math.min(1,(now-points[0].t)/span));
   const line=document.createElement('div'); line.className='nowline';
   line.style.left=`${frac*100}%`; chart.appendChild(line);
+  const latest=latestDose();
+  if(latest){
+    const clinicalEnd=new Date(new Date(latest.time).getTime()+clinicalDuration*3600000);
+    const ef=(clinicalEnd-points[0].t)/span;
+    if(ef>=0 && ef<=1){
+      const eline=document.createElement('div'); eline.className='endline';
+      eline.style.left=`${ef*100}%`; chart.appendChild(eline);
+      const lab=document.createElement('div'); lab.className='endlabel';
+      lab.style.left=`${ef*100}%`; lab.textContent='mean effect window ends';
+      chart.appendChild(lab);
+    }
+  }
 
   const totalNow=doses.reduce((s,d)=>s+doseContribution(d,now),0);
   const pct=Math.round((totalNow/max)*100);
@@ -271,17 +287,23 @@ function renderChart(){
     if(elapsed < 0) hero.textContent='Latest entry is scheduled in the future.';
     else if(elapsed < clinicalOnset) hero.textContent=`About ${Math.max(0,clinicalOnset-elapsed).toFixed(1)} hr to the research-average onset.`;
     else if(elapsed < pp.tmax) hero.textContent='Within the research-average onset window; estimated activity is still rising.';
-    else hero.textContent=`Past the ~${pp.tmax.toFixed(1)} hr PK peak; estimated activity is declining.`;
+    else if(elapsed <= clinicalDuration) hero.textContent=`Past the ~${pp.tmax.toFixed(1)} hr PK peak; estimated activity is declining.`;
+    else hero.textContent='Past the research-average ~7.4 hr clinical-effect window; the activity graph is no longer shown.';
   }
   const chips=document.getElementById('doseChips');
   chips.innerHTML=doses.slice().sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,6).map(d=>`<div class="dosechip"><b>${d.mg} mg · ${fmtTime(new Date(d.time))}</b><span>${foodLabel(d.food)}</span></div>`).join('');
 
   const pill=document.getElementById('statusPill');
   if(!doses.length) pill.textContent='No dose logged';
-  else if(pct>=75) pill.textContent='Higher estimated activity';
-  else if(pct>=35) pill.textContent='Moderate estimated activity';
-  else if(pct>5) pill.textContent='Lower estimated activity';
-  else pill.textContent='Minimal estimated activity';
+  else {
+    const ld2=latestDose();
+    const elapsed2=ld2 ? (now-new Date(ld2.time))/3600000 : 0;
+    if(ld2 && elapsed2>clinicalDuration) pill.textContent='PK tail only';
+    else if(pct>=75) pill.textContent='Higher estimated activity';
+    else if(pct>=35) pill.textContent='Moderate estimated activity';
+    else if(pct>5) pill.textContent='Lower estimated activity';
+    else pill.textContent='Minimal estimated activity';
+  }
 
   const uncertain=doses.some(d=>d.food==='unknown' && new Date(d.time) <= now && now-new Date(d.time) < 12*3600000);
   document.getElementById('uncertainty').innerHTML=uncertain?'<div class="notice">An active dose was logged with “Other / unknown food.” Its curve uses fasting timing as a reference only; the food effect is uncertain.</div>':'';
