@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f3ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="GlycoView" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>GlycoView</title>
+  <style>
+    :root{
+      --bg:#f7f3ff; --card:#ffffff; --ink:#251b33; --muted:#756b80;
+      --accent:#7b5cc5; --accent2:#b39ddb; --soft:#eee7fb; --line:#e6deef;
+      --warn:#9b6413; --warnbg:#fff4df; --good:#386a4a;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif}
+    body{min-height:100vh;padding-bottom:96px}
+    .app{max-width:620px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 16px 24px}
+    .eyebrow{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
+    h1{font-size:34px;line-height:1.05;margin:7px 0 4px}
+    .sub{color:var(--muted);font-size:15px;line-height:1.4;margin-bottom:18px}
+    .card{background:var(--card);border:1px solid rgba(65,41,87,.08);border-radius:24px;padding:18px;box-shadow:0 10px 28px rgba(71,46,94,.07);margin:14px 0}
+    .row{display:flex;align-items:center;gap:10px}
+    .spread{justify-content:space-between}
+    .metric{font-size:13px;color:var(--muted)}
+    .big{font-size:24px;font-weight:800;margin-top:2px}
+    .pill{display:inline-flex;align-items:center;border-radius:999px;padding:7px 10px;background:var(--soft);font-size:12px;font-weight:700;color:#5d438e}
+    .pill.warn{background:var(--warnbg);color:var(--warn)}
+    .chart-wrap{overflow-x:auto;padding:8px 0 2px}
+    .chart{height:190px;min-width:540px;display:flex;align-items:flex-end;gap:4px;border-bottom:1px solid var(--line);position:relative}
+    .barcol{width:20px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+    .bar{width:13px;min-height:2px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,var(--accent),var(--accent2));transition:.2s}
+    .tick{font-size:10px;color:var(--muted);height:22px;padding-top:4px;white-space:nowrap}
+    .nowline{position:absolute;bottom:22px;top:0;width:2px;background:#3d2d56;opacity:.45;pointer-events:none}
+    .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+    .dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--accent);margin-right:5px}
+    button{font:inherit}
+    .primary{width:100%;border:0;border-radius:17px;background:var(--ink);color:#fff;font-weight:800;padding:15px 16px;font-size:16px}
+    .secondary{border:0;border-radius:14px;background:var(--soft);color:#5d438e;font-weight:800;padding:10px 12px}
+    .danger{border:0;background:#fff0f0;color:#9d3d3d;border-radius:12px;padding:8px 10px;font-weight:700}
+    label{font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px}
+    input,select{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px 12px;font-size:16px;color:var(--ink);outline:none}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{margin-bottom:12px}
+    .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#f5f1fa;border-radius:15px;padding:5px}
+    .seg button{border:0;background:transparent;padding:10px 5px;border-radius:11px;color:var(--muted);font-size:12px;font-weight:750}
+    .seg button.active{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(40,23,55,.08)}
+    .dose{padding:12px 0;border-top:1px solid var(--line)}
+    .dose:first-child{border-top:0}
+    .dose-title{font-weight:800}
+    .dose-meta{font-size:12px;color:var(--muted);margin-top:3px}
+    .timeline{display:grid;grid-template-columns:9px 1fr;gap:10px;margin-top:14px}
+    .rail{background:linear-gradient(var(--accent),#ddd2ef);border-radius:99px}
+    .event{padding:1px 0 12px}
+    .event b{display:block;font-size:14px}
+    .event span{font-size:12px;color:var(--muted)}
+    details{margin-top:6px}
+    summary{cursor:pointer;font-weight:800}
+    .fine{font-size:12px;line-height:1.5;color:var(--muted)}
+    .notice{background:var(--warnbg);color:#6c4710;border-radius:15px;padding:11px 12px;font-size:12px;line-height:1.45;margin-top:10px}
+    .footer{font-size:11px;color:var(--muted);line-height:1.45;text-align:center;padding:6px 12px}
+    .empty{color:var(--muted);font-size:14px;padding:8px 0}
+    .dosechip{flex:0 0 auto;background:#f6f1fc;border:1px solid var(--line);border-radius:14px;padding:9px 11px}
+    .dosechip b{font-size:13px;display:block}
+    .dosechip span{font-size:11px;color:var(--muted)}
+    .hero-progress{height:9px;background:#eee8f5;border-radius:99px;overflow:hidden;margin-top:12px}
+    .hero-progress > div{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:99px;transition:.25s}
+
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="eyebrow">Medication activity tracker</div>
+  <h1>GlycoView</h1>
+  <div class="sub">A research-based visualization of oral glycopyrrolate timing. It estimates medication activity; it does not measure blood levels or prescribe dosing.</div>
+
+  <section class="card">
+    <div class="row spread">
+      <div>
+        <div class="metric">Estimated medication activity</div>
+        <div class="big" id="activityNow">0%</div>
+        <div class="fine" id="heroDetail" style="margin-top:4px">Log a dose to begin.</div>
+      </div>
+      <span class="pill" id="statusPill">No dose logged</span>
+    </div><div class="hero-progress"><div id="heroProgress" style="width:0%"></div></div>
+    <div class="chart-wrap"><div class="chart" id="chart"></div></div>
+    <div class="legend"><span><i class="dot"></i>Combined relative activity</span><span>Now marker = dark vertical line</span></div><div id="doseChips" class="row" style="overflow-x:auto;margin-top:12px;padding-bottom:2px"></div>
+    <div id="uncertainty"></div>
+  </section>
+
+  <section class="card" id="nextCard">
+    <div class="metric">Latest dose timeline</div>
+    <div class="timeline">
+      <div class="rail"></div>
+      <div id="events"><div class="empty">Log a dose to see its timeline.</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row spread">
+      <div>
+        <div class="metric">Today</div>
+        <div class="big"><span id="todayTotal">0</span> mg logged</div>
+      </div>
+      <button class="secondary" id="fillNow">Use current time</button>
+    </div>
+
+    <div class="grid2" style="margin-top:14px">
+      <div class="field">
+        <label for="dose">Dose (mg)</label>
+        <input id="dose" type="number" min="0.25" step="0.25" value="1" inputmode="decimal" />
+      </div>
+      <div class="field">
+        <label for="time">Time taken</label>
+        <input id="time" type="datetime-local" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Food condition</label>
+      <div class="seg" id="foodSeg">
+        <button data-food="fasted" class="active">Fasted</button>
+        <button data-food="highfat">High-fat meal</button>
+        <button data-food="unknown">Other / unknown</button>
+      </div>
+    </div>
+    <button class="primary" id="addDose">+ Add glycopyrrolate dose</button>
+    <div class="notice">Use only the dose and timing prescribed by your clinician. The app intentionally does not recommend how much to take or when to redose.</div>
+  </section>
+
+  <section class="card">
+    <div class="row spread">
+      <div>
+        <div class="metric">Dose history</div>
+        <div class="big" style="font-size:20px">Recent entries</div>
+      </div>
+      <button class="secondary" id="clearAll">Clear all</button>
+    </div>
+    <div id="history" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>How the model works</summary>
+      <div class="fine" style="margin-top:10px">
+        <p><b>Fasted PK curve:</b> one-compartment oral absorption model (Bateman function), using a 3.1-hour mean time to maximum concentration and 3.0-hour mean plasma half-life reported for oral glycopyrrolate solution. The absorption-rate constant is fitted so the curve peaks at 3.1 hours.</p>
+        <p><b>High-fat condition:</b> the model uses the reported fed timing (about 2.6-hour Tmax and 3.2-hour half-life) and scales peak amplitude to about 26% of the fasting peak, reflecting the observed reduction in Cmax. Reported overall exposure (AUC) was about 22% of fasting. This study used a specific high-fat meal, so it should not be generalized to every meal.</p>
+        <p><b>Sweat-control window:</b> the timeline separately shows the published mean clinical onset (~2.3 hours) and mean duration of effect (~7.4 hours) from a hyperhidrosis study. Plasma concentration and sweat suppression are not the same thing, so the app labels the PK peak as “medication peak,” not “peak sweat control.”</p>
+        <p><b>Other / unknown food:</b> there is not enough evidence to assign a defensible numeric multiplier for ordinary meals. GlycoView therefore displays the fasting reference timing but flags the result as uncertain instead of inventing a calorie-to-absorption formula.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Research sources</summary>
+      <div class="fine" style="margin-top:10px">
+        <p>• U.S. FDA / DailyMed prescribing information for glycopyrrolate oral solution: pharmacokinetic and food-effect data.</p>
+        <p>• Kim WO et al., <i>Effect of Oral Glycopyrrolate in Essential Hyperhidrosis</i>: mean onset and duration of clinical effect.</p>
+        <p>These data are population averages from specific formulations/studies and are not a measurement of your individual drug concentration.</p>
+      </div>
+    </details>
+  </section>
+
+  <div class="footer">For informational tracking only. Glycopyrrolate can cause anticholinergic adverse effects and impaired heat dissipation. Follow your prescription and seek medical advice for dosing or concerning symptoms.</div>
+</div>
+
+<script>
+const STORAGE_KEY = 'glycoview.doses.v1';
+let doses = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let food = 'fasted';
+
+const fasted = { tmax:3.1, half:3.0, amp:1.0 };
+const highfat = { tmax:2.6, half:3.2, amp:0.264 };
+const clinicalOnset = 2.3;
+const clinicalDuration = 7.4;
+
+function solveKa(tmax, ke){
+  // bisection on ka > ke for ln(ka/ke)/(ka-ke)=tmax
+  let lo = ke * 1.0001, hi = 20;
+  for(let i=0;i<100;i++){
+    const mid=(lo+hi)/2;
+    const val=Math.log(mid/ke)/(mid-ke);
+    if(val>tmax) lo=mid; else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+function params(condition){
+  const p = condition === 'highfat' ? highfat : fasted;
+  const ke = Math.log(2)/p.half;
+  const ka = solveKa(p.tmax, ke);
+  return {...p,ke,ka};
+}
+function rawCurve(hours, condition){
+  if(hours < 0) return 0;
+  const p=params(condition);
+  return Math.max(0, Math.exp(-p.ke*hours)-Math.exp(-p.ka*hours));
+}
+function normCurve(hours, condition){
+  const p=params(condition);
+  const peakRaw=rawCurve(p.tmax, condition);
+  return peakRaw ? (rawCurve(hours,condition)/peakRaw)*p.amp : 0;
+}
+function doseContribution(d, when){
+  const h=(when-new Date(d.time))/(1000*60*60);
+  const cond=d.food==='highfat'?'highfat':'fasted';
+  return Number(d.mg)*normCurve(h,cond);
+}
+function fmtTime(date){
+  return new Intl.DateTimeFormat([], {hour:'numeric',minute:'2-digit'}).format(date);
+}
+function fmtDateTime(date){
+  return new Intl.DateTimeFormat([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(date);
+}
+function localInputValue(d=new Date()){
+  const z=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+function foodLabel(f){
+  return f==='fasted'?'Fasted':f==='highfat'?'High-fat meal':'Other / unknown food';
+}
+function save(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(doses));
+  render();
+}
+function latestDose(){
+  return doses.slice().sort((a,b)=>new Date(b.time)-new Date(a.time))[0];
+}
+function renderChart(){
+  const chart=document.getElementById('chart');
+  chart.innerHTML='';
+  const now=new Date();
+  let start;
+  if(doses.length){
+    const earliest=Math.min(...doses.map(d=>new Date(d.time).getTime()));
+    start=new Date(Math.min(now.getTime()-2*3600000, earliest-3600000));
+  } else start=new Date(now.getTime()-2*3600000);
+  start.setMinutes(0,0,0);
+
+  const points=[];
+  for(let i=0;i<=28;i++){
+    const t=new Date(start.getTime()+i*30*60000);
+    const total=doses.reduce((s,d)=>s+doseContribution(d,t),0);
+    points.push({t,total});
+  }
+  const max=Math.max(0.0001,...points.map(p=>p.total));
+  points.forEach((p,i)=>{
+    const col=document.createElement('div'); col.className='barcol';
+    const bar=document.createElement('div'); bar.className='bar';
+    bar.style.height=`${Math.max(2,(p.total/max)*150)}px`;
+    bar.title=`${fmtTime(p.t)} · ${Math.round((p.total/max)*100)}% relative activity`;
+    const tick=document.createElement('div'); tick.className='tick';
+    tick.textContent=(i%4===0)?fmtTime(p.t):'';
+    col.append(bar,tick); chart.appendChild(col);
+  });
+  const span=points[points.length-1].t-points[0].t;
+  const frac=Math.max(0,Math.min(1,(now-points[0].t)/span));
+  const line=document.createElement('div'); line.className='nowline';
+  line.style.left=`${frac*100}%`; chart.appendChild(line);
+
+  const totalNow=doses.reduce((s,d)=>s+doseContribution(d,now),0);
+  const pct=Math.round((totalNow/max)*100);
+  document.getElementById('activityNow').textContent=doses.length?`${pct}%`:'0%';
+  document.getElementById('heroProgress').style.width=(doses.length?pct:0)+'%';
+  const ld=latestDose();
+  const hero=document.getElementById('heroDetail');
+  if(!ld){ hero.textContent='Log a dose to begin.'; }
+  else {
+    const elapsed=(now-new Date(ld.time))/3600000;
+    const pp=params(ld.food==='highfat'?'highfat':'fasted');
+    if(elapsed < 0) hero.textContent='Latest entry is scheduled in the future.';
+    else if(elapsed < clinicalOnset) hero.textContent=`About ${Math.max(0,clinicalOnset-elapsed).toFixed(1)} hr to the research-average onset.`;
+    else if(elapsed < pp.tmax) hero.textContent='Within the research-average onset window; estimated activity is still rising.';
+    else hero.textContent=`Past the ~${pp.tmax.toFixed(1)} hr PK peak; estimated activity is declining.`;
+  }
+  const chips=document.getElementById('doseChips');
+  chips.innerHTML=doses.slice().sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,6).map(d=>`<div class="dosechip"><b>${d.mg} mg · ${fmtTime(new Date(d.time))}</b><span>${foodLabel(d.food)}</span></div>`).join('');
+
+  const pill=document.getElementById('statusPill');
+  if(!doses.length) pill.textContent='No dose logged';
+  else if(pct>=75) pill.textContent='Higher estimated activity';
+  else if(pct>=35) pill.textContent='Moderate estimated activity';
+  else if(pct>5) pill.textContent='Lower estimated activity';
+  else pill.textContent='Minimal estimated activity';
+
+  const uncertain=doses.some(d=>d.food==='unknown' && new Date(d.time) <= now && now-new Date(d.time) < 12*3600000);
+  document.getElementById('uncertainty').innerHTML=uncertain?'<div class="notice">An active dose was logged with “Other / unknown food.” Its curve uses fasting timing as a reference only; the food effect is uncertain.</div>':'';
+}
+function renderTimeline(){
+  const d=latestDose(), el=document.getElementById('events');
+  if(!d){el.innerHTML='<div class="empty">Log a dose to see its timeline.</div>';return}
+  const t=new Date(d.time);
+  const cond=d.food==='highfat'?'highfat':'fasted';
+  const p=params(cond);
+  const onset=new Date(t.getTime()+clinicalOnset*3600000);
+  const peak=new Date(t.getTime()+p.tmax*3600000);
+  const end=new Date(t.getTime()+clinicalDuration*3600000);
+  let note = d.food==='highfat'
+    ? 'High-fat study condition: predicted peak is much lower than fasting.'
+    : d.food==='unknown'
+      ? 'Food effect unknown; timing shown uses the fasting reference model.'
+      : 'Fasting reference model.';
+  el.innerHTML=`
+    <div class="event"><b>${fmtTime(t)} · Dose taken</b><span>${d.mg} mg · ${foodLabel(d.food)}</span></div>
+    <div class="event"><b>${fmtTime(onset)} · Mean clinical onset</b><span>Research average ≈ 2.3 hours after dose</span></div>
+    <div class="event"><b>${fmtTime(peak)} · Medication concentration peak</b><span>PK Tmax ≈ ${p.tmax.toFixed(1)} hours · not necessarily peak sweat control</span></div>
+    <div class="event"><b>${fmtTime(end)} · Mean clinical effect duration</b><span>Research average ≈ 7.4 hours after dose</span></div>
+    <div class="event"><b>Model note</b><span>${note}</span></div>`;
+}
+function renderHistory(){
+  const el=document.getElementById('history');
+  const sorted=doses.slice().sort((a,b)=>new Date(b.time)-new Date(a.time));
+  if(!sorted.length){el.innerHTML='<div class="empty">No doses logged yet.</div>';return}
+  el.innerHTML=sorted.slice(0,20).map(d=>`
+    <div class="dose row spread">
+      <div><div class="dose-title">${d.mg} mg · ${fmtDateTime(new Date(d.time))}</div>
+      <div class="dose-meta">${foodLabel(d.food)}</div></div>
+      <button class="danger" onclick="removeDose('${d.id}')">Delete</button>
+    </div>`).join('');
+}
+function renderTodayTotal(){
+  const now=new Date(), same=d=>{const x=new Date(d.time);return x.toDateString()===now.toDateString()};
+  const total=doses.filter(same).reduce((s,d)=>s+Number(d.mg),0);
+  document.getElementById('todayTotal').textContent=Number(total.toFixed(2));
+}
+function render(){renderChart();renderTimeline();renderHistory();renderTodayTotal()}
+window.removeDose=id=>{doses=doses.filter(d=>d.id!==id);save()};
+
+document.getElementById('foodSeg').addEventListener('click',e=>{
+  if(!e.target.dataset.food)return;
+  food=e.target.dataset.food;
+  [...document.querySelectorAll('#foodSeg button')].forEach(b=>b.classList.toggle('active',b.dataset.food===food));
+});
+document.getElementById('fillNow').onclick=()=>document.getElementById('time').value=localInputValue();
+document.getElementById('addDose').onclick=()=>{
+  const mg=parseFloat(document.getElementById('dose').value);
+  const time=document.getElementById('time').value;
+  if(!mg || mg<=0 || !time){alert('Enter a valid dose and time.');return}
+  doses.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),mg,time:new Date(time).toISOString(),food});
+  save();
+};
+document.getElementById('clearAll').onclick=()=>{
+  if(confirm('Delete all GlycoView dose history?')){doses=[];save()}
+};
+document.getElementById('time').value=localInputValue();
+render();
+setInterval(render,60000);
+
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+</script>
+</body>
+</html>
