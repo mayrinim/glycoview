@@ -53,3 +53,6 @@ Adds a full-day combined activity graph, up to four same-day dose status cards, 
 
 ## Version 7
 Supports 4–6 same-day logs visually with six chronological purple shades, from lightest for the earliest dose to darkest for the latest. The full-day graph stacks each dose's contribution in its matching shade.
+
+## Version 8
+Changed the full-day graph from a blended/ombré appearance to clearly separated stacked dose segments. Each active dose is a solid purple block with a small gap/border so overlapping doses remain visually distinct.

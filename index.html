@@ -31,8 +31,12 @@
     .pill.warn{background:var(--warnbg);color:var(--warn)}
     .chart-wrap{overflow-x:auto;padding:8px 0 2px}
     .chart{height:190px;min-width:540px;display:flex;align-items:flex-end;gap:4px;border-bottom:1px solid var(--line);position:relative}
-    .barcol{width:20px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-    .bar{width:13px;min-height:2px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,var(--accent),var(--accent2));transition:.2s}
+    .barcol{width:24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+    .bar{width:16px;min-height:2px;border-radius:8px 8px 3px 3px;background:var(--accent);transition:.2s}
+    .dose-stack{width:18px;display:flex;flex-direction:column-reverse;justify-content:flex-start;gap:2px;overflow:visible}
+    .dose-segment{width:18px;min-height:3px;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+    .dose-segment:first-child{border-radius:4px 4px 6px 6px}
+    .dose-segment:last-child{border-radius:6px 6px 4px 4px}
     .tick{font-size:10px;color:var(--muted);height:22px;padding-top:4px;white-space:nowrap}
     .nowline{position:absolute;bottom:22px;top:0;width:2px;background:#3d2d56;opacity:.45;pointer-events:none}
     .endline{position:absolute;bottom:22px;top:0;width:2px;background:#8f7fa7;opacity:.6;pointer-events:none}
