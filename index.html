@@ -66,6 +66,9 @@
     .footer{font-size:11px;color:var(--muted);line-height:1.45;text-align:center;padding:6px 12px}
     .empty{color:var(--muted);font-size:14px;padding:8px 0}
     .dosechip{flex:0 0 auto;background:#f6f1fc;border:1px solid var(--line);border-radius:14px;padding:9px 11px}
+    .shade1{--dose:#e6dcfb}.shade2{--dose:#d1c0f5}.shade3{--dose:#b99eea}.shade4{--dose:#9e7ddd}.shade5{--dose:#7e5dc7}.shade6{--dose:#5b3f9e}
+    .dose-status-card{border-left:5px solid var(--dose,#7b5cc5)}
+    .dosechip{border-left:5px solid var(--dose,#7b5cc5)}
     .dose-status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
     .dose-status-card{background:#faf7ff;border:1px solid var(--line);border-radius:16px;padding:12px}
     .dose-status-card .time{font-size:12px;color:var(--muted);font-weight:700}
@@ -157,7 +160,7 @@
         <p><b>Fasted PK curve:</b> one-compartment oral absorption model (Bateman function), using a 3.1-hour mean time to maximum concentration and 3.0-hour mean plasma half-life reported for oral glycopyrrolate solution. The absorption-rate constant is fitted so the curve peaks at 3.1 hours.</p>
         <p><b>High-fat condition:</b> the model uses the reported fed timing (about 2.6-hour Tmax and 3.2-hour half-life) and scales peak amplitude to about 26% of the fasting peak, reflecting the observed reduction in Cmax. Reported overall exposure (AUC) was about 22% of fasting. This study used a specific high-fat meal, so it should not be generalized to every meal.</p>
         <p><b>Sweat-control window:</b> the timeline separately shows the published mean clinical onset (~2.3 hours) and mean duration of effect (~7.4 hours) from a hyperhidrosis study. GlycoView stops plotting activity after that mean duration so the graph is not mistaken for evidence of continued sweat control. Plasma concentration and sweat suppression are not the same thing.</p>
-        <p><b>Multiple doses:</b> GlycoView can model up to four same-day doses separately. Each dose gets its own absorption/elimination curve, and the active curves are added together to create the full-day combined curve.</p>
+        <p><b>Multiple doses:</b> GlycoView can model up to six same-day doses separately. Each dose gets its own absorption/elimination curve, and the active curves are added together to create the full-day combined curve.</p>
         <p><b>Percent shown at the top:</b> the app simulates the current day, finds the highest modeled combined activity, and reports your current combined activity as a percentage of that day's predicted peak. Each dose card separately shows the current activity as a percentage of that dose's own modeled peak and whether it is building, rising, near peak, or past peak and declining.</p>
         <p><b>Other / unknown food:</b> there is not enough evidence to assign a defensible numeric multiplier for ordinary meals. GlycoView therefore displays the fasting reference timing but flags the result as uncertain instead of inventing a calorie-to-absorption formula.</p>
         <p><b>Meal timing:</b> oral glycopyrrolate is generally taken on an empty stomach. Product labeling for glycopyrrolate oral solution instructs taking it at least <b>1 hour before a meal</b> or at least <b>2 hours after a meal</b>, because high-fat food can substantially reduce oral bioavailability. Follow the directions for your own prescription and formulation.</p>
@@ -279,69 +282,38 @@ function renderChart(){
   chart.innerHTML='';
   const now=new Date();
   const {start,end}=dayRange(now);
+  const todayDoses=doses.filter(d=>new Date(d.time).toDateString()===now.toDateString()).sort((a,b)=>new Date(a.time)-new Date(b.time)).slice(0,6);
   const points=[];
   for(let i=0;i<48;i++){
     const t=new Date(start.getTime()+i*30*60000);
-    points.push({t,total:combinedAt(t)});
+    const parts=todayDoses.map(d=>doseContribution(d,t));
+    points.push({t,parts,total:parts.reduce((s,v)=>s+v,0)});
   }
   const peak=predictedDayPeak(now);
   const max=Math.max(0.0001,peak.max);
-
+  const shades=['#e6dcfb','#d1c0f5','#b99eea','#9e7ddd','#7e5dc7','#5b3f9e'];
   points.forEach((p,i)=>{
-    const col=document.createElement('div'); col.className='barcol';
-    const bar=document.createElement('div'); bar.className='bar';
-    bar.style.height=p.total>0?`${Math.max(2,(p.total/max)*150)}px`:'0px';
-    bar.title=`${fmtTime(p.t)} · ${Math.round((p.total/max)*100)}% of today's predicted peak`;
-    const tick=document.createElement('div'); tick.className='tick';
-    tick.textContent=(i%6===0)?fmtTime(p.t):'';
-    col.append(bar,tick); chart.appendChild(col);
+    const col=document.createElement('div'); col.className='barcol'; col.style.justifyContent='flex-end';
+    const stack=document.createElement('div');
+    stack.style.width='13px'; stack.style.height=p.total>0?`${Math.max(2,(p.total/max)*150)}px`:'0px';
+    stack.style.display='flex'; stack.style.flexDirection='column-reverse'; stack.style.borderRadius='8px 8px 3px 3px'; stack.style.overflow='hidden';
+    p.parts.forEach((part,idx)=>{ if(part<=0||p.total<=0)return; const seg=document.createElement('div'); seg.style.background=shades[idx]; seg.style.height=`${(part/p.total)*100}%`; stack.appendChild(seg); });
+    const tick=document.createElement('div'); tick.className='tick'; tick.textContent=(i%6===0)?fmtTime(p.t):'';
+    col.append(stack,tick); chart.appendChild(col);
   });
-
-  const frac=Math.max(0,Math.min(1,(now-start)/(end-start)));
-  const line=document.createElement('div'); line.className='nowline';
-  line.style.left=`${frac*100}%`; chart.appendChild(line);
-
-  const totalNow=combinedAt(now);
-  const pct=doses.length && peak.max>0 ? Math.round((totalNow/peak.max)*100) : 0;
-  document.getElementById('activityNow').textContent=doses.length?`${pct}%`:'0%';
-  document.getElementById('heroProgress').style.width=(doses.length?pct:0)+'%';
-
+  const frac=Math.max(0,Math.min(1,(now-start)/(end-start))); const line=document.createElement('div'); line.className='nowline'; line.style.left=`${frac*100}%`; chart.appendChild(line);
+  const totalNow=combinedAt(now); const pct=todayDoses.length&&peak.max>0?Math.round((totalNow/peak.max)*100):0;
+  document.getElementById('activityNow').textContent=todayDoses.length?`${pct}%`:'0%'; document.getElementById('heroProgress').style.width=(todayDoses.length?pct:0)+'%';
   const hero=document.getElementById('heroDetail');
-  if(!doses.length){
-    hero.textContent='Log a dose to begin.';
-    document.getElementById('dayPeakDetail').textContent='';
-  } else {
-    hero.textContent=`${pct}% of today's predicted combined peak.`;
-    document.getElementById('dayPeakDetail').textContent=`Today's modeled peak occurs around ${fmtTime(peak.at)}.`;
-  }
-
+  if(!todayDoses.length){ hero.textContent='Log a dose to begin.'; document.getElementById('dayPeakDetail').textContent=''; }
+  else { hero.textContent=`${pct}% of today's predicted combined peak.`; document.getElementById('dayPeakDetail').textContent=`Today's modeled peak occurs around ${fmtTime(peak.at)}.`; }
   const pill=document.getElementById('statusPill');
-  if(!doses.length) pill.textContent='No dose logged';
-  else if(pct>=75) pill.textContent='Higher estimated activity';
-  else if(pct>=35) pill.textContent='Moderate estimated activity';
-  else if(pct>5) pill.textContent='Lower estimated activity';
-  else pill.textContent='Minimal estimated activity';
-
-  const uncertain=doses.some(d=>d.food==='unknown' && new Date(d.time)<=now && now-new Date(d.time)<clinicalDuration*3600000);
+  if(!todayDoses.length) pill.textContent='No dose logged'; else if(pct>=75) pill.textContent='Higher estimated activity'; else if(pct>=35) pill.textContent='Moderate estimated activity'; else if(pct>5) pill.textContent='Lower estimated activity'; else pill.textContent='Minimal estimated activity';
+  const uncertain=todayDoses.some(d=>d.food==='unknown'&&new Date(d.time)<=now&&now-new Date(d.time)<clinicalDuration*3600000);
   document.getElementById('uncertainty').innerHTML=uncertain?'<div class="notice">An active dose was logged with “Other / unknown food.” Its curve uses fasting timing as a reference only; the food effect is uncertain.</div>':'';
-
-  const todayDoses=doses
-    .filter(d=>new Date(d.time).toDateString()===now.toDateString())
-    .sort((a,b)=>new Date(a.time)-new Date(b.time))
-    .slice(0,4);
-
-  document.getElementById('doseStatusGrid').innerHTML=todayDoses.map((d,idx)=>{
-    const ip=Math.round(individualPctOfPeak(d,now));
-    return `<div class="dose-status-card">
-      <div class="time">Dose ${idx+1} · ${fmtTime(new Date(d.time))} · ${d.mg} mg</div>
-      <div class="pct">${ip}%</div>
-      <div class="state">${doseState(d,now)}</div>
-      <div class="dose-meta">% of this dose's own modeled peak</div>
-    </div>`;
-  }).join('');
-
+  document.getElementById('doseStatusGrid').innerHTML=todayDoses.map((d,idx)=>{ const ip=Math.round(individualPctOfPeak(d,now)); return `<div class="dose-status-card shade${idx+1}"><div class="time">Dose ${idx+1} · ${fmtTime(new Date(d.time))} · ${d.mg} mg</div><div class="pct">${ip}%</div><div class="state">${doseState(d,now)}</div><div class="dose-meta">% of this dose's own modeled peak</div></div>`; }).join('');
   const chips=document.getElementById('doseChips');
-  chips.innerHTML=doses.slice().sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,8).map(d=>`<div class="dosechip"><b>${d.mg} mg · ${fmtTime(new Date(d.time))}</b><span>${foodLabel(d.food)}</span></div>`).join('');
+  chips.innerHTML=todayDoses.slice().reverse().map(d=>{ const idx=todayDoses.findIndex(x=>x.id===d.id); return `<div class="dosechip shade${idx+1}"><b>${d.mg} mg · ${fmtTime(new Date(d.time))}</b><span>${foodLabel(d.food)}</span></div>`; }).join('');
 }
 function renderTimeline(){
   const d=latestDose(), el=document.getElementById('events');

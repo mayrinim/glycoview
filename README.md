@@ -49,3 +49,7 @@ Centered the activity-status badge and added meal-timing guidance (at least 1 ho
 
 ## Version 6
 Adds a full-day combined activity graph, up to four same-day dose status cards, % of today's predicted combined peak, and per-dose % of each dose's own modeled peak.
+
+
+## Version 7
+Supports 4–6 same-day logs visually with six chronological purple shades, from lightest for the earliest dose to darkest for the latest. The full-day graph stacks each dose's contribution in its matching shade.
