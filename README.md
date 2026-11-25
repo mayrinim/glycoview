@@ -56,3 +56,6 @@ Supports 4–6 same-day logs visually with six chronological purple shades, from
 
 ## Version 8
 Changed the full-day graph from a blended/ombré appearance to clearly separated stacked dose segments. Each active dose is a solid purple block with a small gap/border so overlapping doses remain visually distinct.
+
+## Version 9
+Tap a dose status card to view its individual timeline. The selected card is highlighted; the latest dose is selected by default.

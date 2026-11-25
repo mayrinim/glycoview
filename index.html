@@ -73,6 +73,9 @@
     .shade1{--dose:#e6dcfb}.shade2{--dose:#d1c0f5}.shade3{--dose:#b99eea}.shade4{--dose:#9e7ddd}.shade5{--dose:#7e5dc7}.shade6{--dose:#5b3f9e}
     .dose-status-card{border-left:5px solid var(--dose,#7b5cc5)}
     .dosechip{border-left:5px solid var(--dose,#7b5cc5)}
+    .dose-status-card[role="button"]{cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;touch-action:manipulation}
+    .dose-status-card.selected{border:2px solid #7451c2;background:#f0e9ff;box-shadow:0 0 0 2px rgba(116,81,194,.10);padding:11px}
+    .dose-status-card:focus-visible{outline:3px solid #7451c2;outline-offset:2px}
     .dose-status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
     .dose-status-card{background:#faf7ff;border:1px solid var(--line);border-radius:16px;padding:12px}
     .dose-status-card .time{font-size:12px;color:var(--muted);font-weight:700}
@@ -107,7 +110,8 @@
   </section>
 
   <section class="card" id="nextCard">
-    <div class="metric">Latest dose timeline</div>
+    <div class="metric"><span id="timelineTitle">Selected dose timeline</span></div>
+    <div class="dose-meta" id="timelineSelected" style="margin:6px 0 12px">Tap a dose card above to switch timelines.</div>
     <div class="timeline">
       <div class="rail"></div>
       <div id="events"><div class="empty">Log a dose to see its timeline.</div></div>
@@ -187,6 +191,7 @@
 const STORAGE_KEY = 'glycoview.doses.v1';
 let doses = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let food = 'fasted';
+let selectedDoseId = null; // Keep the user's selected timeline until that entry is removed.
 
 const fasted = { tmax:3.1, half:3.0, amp:1.0 };
 const highfat = { tmax:2.6, half:3.2, amp:0.264 };
@@ -315,12 +320,17 @@ function renderChart(){
   if(!todayDoses.length) pill.textContent='No dose logged'; else if(pct>=75) pill.textContent='Higher estimated activity'; else if(pct>=35) pill.textContent='Moderate estimated activity'; else if(pct>5) pill.textContent='Lower estimated activity'; else pill.textContent='Minimal estimated activity';
   const uncertain=todayDoses.some(d=>d.food==='unknown'&&new Date(d.time)<=now&&now-new Date(d.time)<clinicalDuration*3600000);
   document.getElementById('uncertainty').innerHTML=uncertain?'<div class="notice">An active dose was logged with “Other / unknown food.” Its curve uses fasting timing as a reference only; the food effect is uncertain.</div>':'';
-  document.getElementById('doseStatusGrid').innerHTML=todayDoses.map((d,idx)=>{ const ip=Math.round(individualPctOfPeak(d,now)); return `<div class="dose-status-card shade${idx+1}"><div class="time">Dose ${idx+1} · ${fmtTime(new Date(d.time))} · ${d.mg} mg</div><div class="pct">${ip}%</div><div class="state">${doseState(d,now)}</div><div class="dose-meta">% of this dose's own modeled peak</div></div>`; }).join('');
+  document.getElementById('doseStatusGrid').innerHTML=todayDoses.map((d,idx)=>{ const ip=Math.round(individualPctOfPeak(d,now)); return `<div class="dose-status-card shade${idx+1}${selectedDoseId===d.id?' selected':''}" role="button" tabindex="0" aria-pressed="${selectedDoseId===d.id}" data-dose-id="${d.id}" aria-label="View timeline for dose ${idx+1} at ${fmtTime(new Date(d.time))}"><div class="time">Dose ${idx+1} · ${fmtTime(new Date(d.time))} · ${d.mg} mg</div><div class="pct">${ip}%</div><div class="state">${doseState(d,now)}</div><div class="dose-meta">% of this dose's own modeled peak</div></div>`; }).join('');
   const chips=document.getElementById('doseChips');
   chips.innerHTML=todayDoses.slice().reverse().map(d=>{ const idx=todayDoses.findIndex(x=>x.id===d.id); return `<div class="dosechip shade${idx+1}"><b>${d.mg} mg · ${fmtTime(new Date(d.time))}</b><span>${foodLabel(d.food)}</span></div>`; }).join('');
 }
 function renderTimeline(){
-  const d=latestDose(), el=document.getElementById('events');
+  const today=doses.filter(d=>new Date(d.time).toDateString()===new Date().toDateString()).sort((a,b)=>new Date(a.time)-new Date(b.time));
+  const selected=today.find(d=>d.id===selectedDoseId);
+  const d=selected || today[today.length-1] || null;
+  selectedDoseId=d?d.id:null;
+  document.getElementById('timelineSelected').textContent=d ? `Viewing ${today.indexOf(d)+1} of ${today.length} · ${fmtTime(new Date(d.time))} · ${d.mg} mg · ${foodLabel(d.food)}` : 'Tap a dose card above to switch timelines.';
+  const el=document.getElementById('events');
   if(!d){el.innerHTML='<div class="empty">Log a dose to see its timeline.</div>';return}
   const t=new Date(d.time);
   const cond=d.food==='highfat'?'highfat':'fasted';
@@ -356,7 +366,22 @@ function renderTodayTotal(){
   const total=doses.filter(same).reduce((s,d)=>s+Number(d.mg),0);
   document.getElementById('todayTotal').textContent=Number(total.toFixed(2));
 }
-function render(){renderChart();renderTimeline();renderHistory();renderTodayTotal()}
+function render(){
+  renderTimeline(); // resolve selected dose first so the highlight follows it
+  renderChart();renderHistory();renderTodayTotal();
+}
+document.getElementById('doseStatusGrid').addEventListener('click',e=>{
+  const card=e.target.closest('[data-dose-id]');
+  if(!card)return;
+  selectedDoseId=card.dataset.doseId;
+  render();
+});
+document.getElementById('doseStatusGrid').addEventListener('keydown',e=>{
+  if(e.key!=='Enter' && e.key!==' ')return;
+  const card=e.target.closest('[data-dose-id]');
+  if(!card)return;
+  e.preventDefault();selectedDoseId=card.dataset.doseId;render();card.focus();
+});
 window.removeDose=id=>{doses=doses.filter(d=>d.id!==id);save()};
 
 document.getElementById('foodSeg').addEventListener('click',e=>{
